@@ -1,1 +1,1 @@
-FROM registry.k8s.io/sig-storage/csi-provisioner:v3.1.1
+FROM registry.k8s.io/prometheus-adapter/prometheus-adapter:v0.10.0
