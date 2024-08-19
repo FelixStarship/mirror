@@ -1,16 +1,29 @@
-FROM centos:7
+# 使用 CentOS 最新的基础镜像
+FROM centos:latest
 
-# 安装软件包和设置SSH服务
-RUN yum -y update
-RUN yum -y install openssh-server net-tools lsof telnet passwd openssh-clients
-RUN echo '123456' | passwd --stdin root
-RUN sed -i 's/UsePAM yes/UsePAM no/g' /etc/ssh/sshd_config
-RUN sed -ri '/^session\s+required\s+pam_loginuid.so/ s/^/#/' /etc/pam.d/sshd
-RUN ssh-keygen -t rsa -A
-RUN mkdir -p /root/.ssh && chown root.root /root && chmod 700 /root/.ssh
+# 更新系统并安装 nfs-utils 和 rpcbind
+RUN yum update -y && \
+    yum install -y nfs-utils rpcbind
 
-# 暴露SSH服务端口
-EXPOSE 22
+# 启动 rpcbind 服务
+RUN systemctl enable rpcbind && \
+    systemctl start rpcbind
 
-# 启动SSH服务
-CMD ["/usr/sbin/sshd", "-D"]
+# 启动 NFS 服务
+RUN systemctl enable nfs-server && \
+    systemctl start nfs-server
+
+# 配置防火墙以允许 NFS 相关的服务
+RUN firewall-cmd --permanent --add-service=nfs && \
+    firewall-cmd --permanent --add-service=rpc-bind && \
+    firewall-cmd --permanent --add-service=mountd && \
+    firewall-cmd --reload
+
+# 配置 /etc/exports 文件
+COPY ./exports /etc/exports
+
+# 设置正确的文件权限
+RUN chmod 644 /etc/exports
+
+# 重启 NFS 服务以应用配置更改
+CMD ["systemctl", "restart", "nfs-server"]
